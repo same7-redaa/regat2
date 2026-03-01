@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", ui-sans-serif, system-ui, sans-serif;
+  --color-sky-50: #f0f8ff;
+  --color-sky-100: #e0f0ff;
+  --color-sky-200: #bae0ff;
+  --color-sky-300: #7cc4ff;
+  --color-sky-400: #38a9ff;
+  --color-sky-500: #008eff;
+  --color-sky-600: #007ce0;
+  --color-sky-700: #006bbd;
+  --color-sky-800: #005a9e;
+  --color-sky-900: #004a82;
+}
+
+@layer base {
+  body {
+    font-family: "Cairo", sans-serif;
+    background-color: #f8fafc;
+    color: #0f172a;
+    direction: rtl;
+  }
+
+  * {
+    font-family: "Cairo", sans-serif !important;
+  }
+}
+
+@layer utilities {
+
+  .font-tajawal,
+  .font-mono,
+  .font-stc,
+  .font-sans {
+    font-family: "Cairo", sans-serif;
+  }
+}

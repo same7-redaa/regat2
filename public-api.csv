@@ -1,0 +1,2 @@
+id,updated_at,created_at,store_id,is_active,permissions,description
+98b876cb-58d2-4474-b471-da95cbdb5f08,2026-03-01T23:23:49.555683Z,2026-03-01T23:23:49.555683Z,615ae521-e2fb-48e7-960f-48301a45d76e,true,products:read;products:create;products:update;products:delete;orders:read;orders:create;orders:update;orders:delete,
