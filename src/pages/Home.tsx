@@ -112,7 +112,7 @@ export default function Home() {
       return d >= start && d <= end;
     };
 
-    const filteredOrders = orders.filter(o => isDateInRange(o.created_at));
+    const filteredOrders = orders.filter(o => isDateInRange(o.date || o.orderDate || o.createdAt || o.created_at));
     const filteredExpenses = expenses.filter(e => isDateInRange(e.date || e.created_at));
 
     let tProd = 0, invVal = 0;
@@ -260,16 +260,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Warning Alert */}
-      {stats.shipped > 0 && (
-        <div className="bg-red-50/50 border border-red-100 p-4 flex items-center gap-4 rounded-none shadow-[0_2px_8px_rgba(0,0,0,0.02)] justify-start text-right">
-          <div className="w-full">
-            <h3 className="font-bold text-red-800 text-sm flex items-center justify-end gap-2 w-full">تنبيه تأخير الشحنات! <AlertTriangle className="w-5 h-5 text-red-600" /></h3>
-            <p className="text-red-500/80 text-xs mt-1 text-right w-full">يوجد {stats.shipped} شحنة مع شركة الشحن لأكثر من 3 أيام ولم يتم تسليمها للعميل.</p>
-          </div>
-        </div>
-      )}
-
       {/* 1. Orders Summary Cards (Top Row) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
 
@@ -306,7 +296,7 @@ export default function Home() {
         </div>
 
         <div className="bg-white rounded-none shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border-t-[3px] border-slate-800 flex flex-col items-center justify-center min-h-[130px]">
-          <p className="text-slate-500 text-xs font-medium mb-3">إجمالي الطلبات بالفلتر</p>
+          <p className="text-slate-500 text-xs font-medium mb-3">إجمالي الطلبات المسجلة</p>
           <div className="flex items-center gap-3">
             <p className="text-3xl font-bold text-slate-800">{stats.totalOrders}</p>
             <div className="bg-slate-100 p-1.5 rounded-none text-slate-700"><FileText className="w-5 h-5" /></div>

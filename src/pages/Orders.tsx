@@ -130,6 +130,7 @@ export default function Orders() {
 
                     const orderProducts: any[] = [];
                     let subtotal = 0;
+                    const tempStockChanges: { idx: number, qty: number }[] = [];
 
                     for (let i = 1; i <= 50; i++) {
                         const prodName = (row[`منتج ${i}`] || row[`منتج${i}`])?.toString().trim();
@@ -141,13 +142,20 @@ export default function Orders() {
                             const pData = localProducts[mpIdx];
                             orderProducts.push({ productId: pData.id, name: pData.productName, price: Number(pData.sellingPrice), quantity: qty });
                             subtotal += Number(pData.sellingPrice) * qty;
-                            localProducts[mpIdx].stock = Math.max(0, (Number(localProducts[mpIdx].stock) || 0) - qty);
-                            stockUpdates.push({ id: pData.id, stock: localProducts[mpIdx].stock });
+                            tempStockChanges.push({ idx: mpIdx, qty });
                         } else {
                             hasUnlinkedItems = true;
                             unlinkedDetails.push(`المنتج '​${prodName}' غير مسجل بالمخزون`);
                             orderProducts.push({ productId: `import-${Date.now()}-${i}`, name: prodName, price: 0, quantity: qty });
                         }
+                    }
+
+                    if (!hasUnlinkedItems) {
+                        tempStockChanges.forEach(change => {
+                            const pData = localProducts[change.idx];
+                            pData.stock = Math.max(0, (Number(pData.stock) || 0) - change.qty);
+                            stockUpdates.push({ id: pData.id, stock: pData.stock });
+                        });
                     }
 
                     newOrdersToInsert.push({
@@ -158,7 +166,7 @@ export default function Orders() {
                         products: orderProducts,
                         shipping: { companyId, companyName: matchedCompanyName, locationId, locationName: matchedLocationName, detailedAddress: address, shippingCost, actualCost },
                         discount: 0, subtotal, total: subtotal + shippingCost,
-                        status: 'تم التوصيل', alertDurationDays: alertDuration,
+                        status: hasUnlinkedItems ? 'قيد المراجعة' : 'تم التوصيل', alertDurationDays: alertDuration,
                         hasUnlinkedItems, unlinkedDetails, notes,
                         createdAt: new Date().toISOString()
                     });
@@ -365,6 +373,18 @@ export default function Orders() {
         return diffDays > order.alertDurationDays;
     };
 
+    const getOrderStockIssues = (order: any) => {
+        if (!['قيد المراجعة', 'بالإنتظار'].includes(order.status) || !order.products) return [];
+        const issues: string[] = [];
+        order.products.forEach((op: any) => {
+            const dbProduct = products.find(p => p.id === op.productId);
+            if (dbProduct && Number(op.quantity) > Number(dbProduct.stock)) {
+                issues.push(`«${op.productName || op.name}»: مطلوب ${op.quantity} والمتاح ${dbProduct.stock || 0}`);
+            }
+        });
+        return issues;
+    };
+
     const getRowColor = (order: any) => {
         if (order.hasUnlinkedItems) {
             return 'bg-amber-50 hover:bg-amber-100 border-b-2 border-amber-300';
@@ -372,6 +392,12 @@ export default function Orders() {
         if (isOrderDelayed(order)) {
             return 'bg-rose-50 hover:bg-rose-100 border-b-2 border-rose-400 font-bold';
         }
+
+        const stockIssues = getOrderStockIssues(order);
+        if (stockIssues.length > 0) {
+            return 'bg-red-50 hover:bg-red-100 border-r-[3px] border-r-red-500';
+        }
+
         switch (order.status) {
             case 'مكتمل':
             case 'تم التوصيل': return 'bg-emerald-50/40 hover:bg-emerald-50/80';
@@ -657,6 +683,12 @@ export default function Orders() {
                                         {order.id}
                                         {isOrderDelayed(order) && <AlertTriangle className="w-5 h-5 text-rose-500 drop-shadow-sm" title={`تجاوز مدة التنبيه المحددة (${order.alertDurationDays} أيام)`} />}
                                         {order.hasUnlinkedItems && <Link2Off className="w-5 h-5 text-amber-500 drop-shadow-sm" title="يحتوي على بيانات غير مرتبطة بالنظام (منتج أو شحن)" />}
+                                        {(() => {
+                                            const stockIssues = getOrderStockIssues(order);
+                                            return stockIssues.length > 0 && (
+                                                <AlertTriangle className="w-5 h-5 text-red-600 drop-shadow-sm" title={`المخزون غير كافي!\n${stockIssues.join('\n')}`} />
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-800">{order.customer || order.customerName}</td>
                                     <td className="px-6 py-4 font-mono text-slate-600 text-xs" dir="ltr">{order.phone || order.primaryPhone || '-'}</td>
