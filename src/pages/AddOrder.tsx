@@ -90,7 +90,7 @@ export default function AddOrder() {
     const [searchParams] = useSearchParams();
     const editId = searchParams.get('edit');
     const [isEditing, setIsEditing] = useState(false);
-    const [existingStatus, setExistingStatus] = useState('قيد المراجعة');
+    const [existingStatus, setExistingStatus] = useState('تم التوصيل');
     const [saving, setSaving] = useState(false);
 
     // Data from local storage
@@ -243,13 +243,24 @@ export default function AddOrder() {
                 shippingCost, actualCost: selectedLocation?.actualCost || 0
             },
             discount: Number(discount || 0), subtotal, total: finalTotal,
-            status: isEditing ? existingStatus : 'قيد المراجعة',
+            status: isEditing ? existingStatus : 'تم التوصيل',
             alertDurationDays: Number(alertDurationDays || 0),
             notes,
             createdAt: oldOrderCreatedAt
         };
 
         const { error } = await supabase.from('orders').upsert(orderPayload, { onConflict: 'id' });
+
+        // Instant Stock Deduction for New Orders
+        if (!isEditing && !error) {
+            for (const p of validProducts) {
+                const prodDef = availableProducts.find((ap: any) => ap.id === p.productId);
+                if (prodDef) {
+                    const newStock = Math.max(0, (Number(prodDef.stock) || 0) - p.quantity);
+                    await supabase.from('products').update({ stock: newStock }).eq('id', p.productId);
+                }
+            }
+        }
         if (error) { setSaving(false); alert('حدث خطأ أثناء حفظ الطلب: ' + error.message); return; }
 
         navigate('/orders');

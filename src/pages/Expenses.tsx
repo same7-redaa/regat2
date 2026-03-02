@@ -17,6 +17,9 @@ export default function Expenses() {
     const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
     const [notes, setNotes] = useState('');
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 30;
+
     const categories = ['نثرية', 'إيجار', 'رواتب', 'إعلانات وتسويق', 'تغليف ومطبوعات', 'صيانة', 'أخرى'];
 
     useEffect(() => {
@@ -102,6 +105,9 @@ export default function Expenses() {
     };
 
     const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+    const totalPages = Math.ceil(expenses.length / itemsPerPage);
+    const paginatedExpenses = expenses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     if (loading) return <PageSkeleton />;
 
@@ -212,7 +218,7 @@ export default function Expenses() {
                                     </td>
                                 </tr>
                             ) : (
-                                expenses.map((expense) => (
+                                paginatedExpenses.map((expense) => (
                                     <tr key={expense.id} className="hover:bg-slate-50 transition-colors group">
                                         <td className="px-6 py-4 text-slate-600 font-mono text-xs">{expense.date}</td>
                                         <td className="px-6 py-4">
@@ -236,6 +242,30 @@ export default function Expenses() {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Pagination Footer */}
+                <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 mt-auto">
+                    <span className="text-sm text-slate-500 font-tajawal">
+                        عرض {expenses.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-
+                        {Math.min(currentPage * itemsPerPage, expenses.length)} من {expenses.length} مصروف
+                    </span>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1 || expenses.length === 0}
+                            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium disabled:opacity-50 transition-colors"
+                        >
+                            السابق
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages || expenses.length === 0}
+                            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium disabled:opacity-50 transition-colors"
+                        >
+                            التالي
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -25,6 +25,7 @@ export default function Orders() {
     const [cancelFee, setCancelFee] = useState(0);
 
     const [returnOrderId, setReturnOrderId] = useState<string | null>(null);
+    const [returnTargetStatus, setReturnTargetStatus] = useState<string>('مرتجع');
     const [returnFee, setReturnFee] = useState(0);
     const [returnQuantities, setReturnQuantities] = useState<{ [key: string]: number }>({});
 
@@ -38,6 +39,9 @@ export default function Orders() {
     const [filterLocation, setFilterLocation] = useState('all');
     const [filterStartDate, setFilterStartDate] = useState('');
     const [filterEndDate, setFilterEndDate] = useState('');
+
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 30;
 
     useEffect(() => {
         const fetchOrders = async () => {
@@ -80,6 +84,18 @@ export default function Orders() {
                 const stockUpdates: { id: string, stock: number }[] = [];
                 const localProducts = [...products];
 
+                const normalizeAr = (s: string) => {
+                    if (!s) return '';
+                    let cleanStr = s.replace(/[\u064B-\u065F]/g, '');
+                    cleanStr = cleanStr.replace(/[\t\n\r]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+                    cleanStr = cleanStr.replace(/[أإآٱ]/g, 'ا');
+                    cleanStr = cleanStr.replace(/ة/g, 'ه');
+                    cleanStr = cleanStr.replace(/[ىي]/g, 'ي');
+                    cleanStr = cleanStr.replace(/ؤ/g, 'و');
+                    cleanStr = cleanStr.replace(/ئ/g, 'ي');
+                    return cleanStr;
+                };
+
                 data.forEach((row: any) => {
                     const customerName = row['اسم العميل'];
                     if (!customerName) return;
@@ -99,11 +115,13 @@ export default function Orders() {
                     const unlinkedDetails: string[] = [];
 
                     if (companyName) {
-                        const mc = companies.find((c: any) => c.name.includes(companyName) || companyName.includes(c.name));
+                        const normCompName = normalizeAr(companyName);
+                        const mc = companies.find((c: any) => normalizeAr(c.name).includes(normCompName) || normCompName.includes(normalizeAr(c.name)));
                         if (mc) {
                             companyId = mc.id; matchedCompanyName = mc.name;
                             if (locationName) {
-                                const ml = mc.locations?.find((l: any) => l.name.includes(locationName) || locationName.includes(l.name));
+                                const normLocName = normalizeAr(locationName);
+                                const ml = mc.locations?.find((l: any) => normalizeAr(l.name).includes(normLocName) || normLocName.includes(normalizeAr(l.name)) || normalizeAr(l.name) === normLocName);
                                 if (ml) { locationId = ml.id; matchedLocationName = ml.name; shippingCost = Number(ml.customerCost) || 0; actualCost = Number(ml.actualCost) || 0; }
                                 else { hasUnlinkedItems = true; unlinkedDetails.push(`المحافظة '​${locationName}' غير مسجلة لشركة ${matchedCompanyName}`); }
                             }
@@ -112,7 +130,6 @@ export default function Orders() {
 
                     const orderProducts: any[] = [];
                     let subtotal = 0;
-                    const normalizeAr = (s: string) => s ? s.replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').trim().toLowerCase() : '';
 
                     for (let i = 1; i <= 50; i++) {
                         const prodName = (row[`منتج ${i}`] || row[`منتج${i}`])?.toString().trim();
@@ -141,7 +158,7 @@ export default function Orders() {
                         products: orderProducts,
                         shipping: { companyId, companyName: matchedCompanyName, locationId, locationName: matchedLocationName, detailedAddress: address, shippingCost, actualCost },
                         discount: 0, subtotal, total: subtotal + shippingCost,
-                        status: 'تم الشحن', alertDurationDays: alertDuration,
+                        status: 'تم التوصيل', alertDurationDays: alertDuration,
                         hasUnlinkedItems, unlinkedDetails, notes,
                         createdAt: new Date().toISOString()
                     });
@@ -205,45 +222,73 @@ export default function Orders() {
 
         const oldStatus = order.status;
 
-        // --- Stock logic: ONLY 'تم الشحن' affects inventory ---
         const stockChanges: { id: string, stock: number }[] = [];
+        const { data: productsData } = await supabase.from('products').select('*');
+        const localProducts = [...(productsData || [])];
 
-        if (oldStatus !== newStatus) {
-            const { data: productsData } = await supabase.from('products').select('*');
-            const localProducts = [...(productsData || [])];
+        // 1. Calculate how many items this order CURRENTLY holds from the warehouse 
+        // (Only Shipped, Delivered, or Partially Delivered statuses actually hold stock)
+        const activeStatuses = ['تم الشحن', 'تم التوصيل', 'تسليم جزئي', 'مرتجع جزئي'];
 
-            // If leaving 'تم الشحن' or 'تم التوصيل' → restore stock
-            if (oldStatus === 'تم الشحن' || oldStatus === 'تم التوصيل') {
-                order.products?.forEach((p: any) => {
-                    const idx = localProducts.findIndex((prod: any) => prod.id === p.productId);
-                    if (idx > -1) {
-                        localProducts[idx].stock = (Number(localProducts[idx].stock) || 0) + Number(p.quantity);
-                        stockChanges.push({ id: localProducts[idx].id, stock: localProducts[idx].stock });
-                    }
-                });
-            }
+        const getOrderHeldStock = (statusToCheck: string, orderProducts: any[]) => {
+            if (!activeStatuses.includes(statusToCheck)) return {};
+            const held: { [id: string]: number } = {};
+            orderProducts?.forEach((p: any) => {
+                held[p.productId] = Math.max(0, p.quantity - (p.returnedQuantity || 0));
+            });
+            return held;
+        };
 
-            // If entering 'تم الشحن' or 'تم التوصيل' → deduct stock
-            if (newStatus === 'تم الشحن' || newStatus === 'تم التوصيل') {
-                order.products?.forEach((p: any) => {
-                    const idx = localProducts.findIndex((prod: any) => prod.id === p.productId);
-                    if (idx > -1) {
-                        localProducts[idx].stock = Math.max(0, (Number(localProducts[idx].stock) || 0) - Number(p.quantity));
-                        stockChanges.push({ id: localProducts[idx].id, stock: localProducts[idx].stock });
-                    }
-                });
-            }
-        }
+        const oldHeldStock = getOrderHeldStock(oldStatus, order.products || []);
 
-        // Build updated order object
+        // 2. Build the NEW updatedOrder object to determine future state
         const updatedOrder: any = { ...order, status: newStatus };
         if (newStatus !== 'ملغي') { updatedOrder.cancellationFee = 0; }
         if (newStatus !== 'مرتجع') { updatedOrder.returnFee = 0; }
-        if (newStatus === 'ملغي' && extraData) { updatedOrder.cancellationFee = extraData.fee; updatedOrder.cancellationDate = new Date().toISOString(); }
-        if (newStatus === 'مرتجع' && extraData) {
-            updatedOrder.returnFee = extraData.fee; updatedOrder.returnDate = new Date().toISOString();
-            updatedOrder.products = order.products?.map((p: any) => ({ ...p, returnedQuantity: extraData.quantities[p.productId] || 0 }));
+
+        if (newStatus === 'ملغي' && extraData) {
+            updatedOrder.cancellationFee = extraData.fee;
+            updatedOrder.cancellationDate = new Date().toISOString();
         }
+
+        if ((newStatus === 'مرتجع' || newStatus === 'تسليم جزئي' || newStatus === 'مرتجع جزئي') && extraData) {
+            updatedOrder.returnFee = extraData.fee;
+            updatedOrder.returnDate = new Date().toISOString();
+            updatedOrder.products = order.products?.map((p: any) => ({
+                ...p,
+                returnedQuantity: extraData.quantities[p.productId] || 0
+            }));
+        }
+
+        // If recovering from a return back to an active state, clear out return data
+        if (['قيد المراجعة', 'تم الشحن', 'تم التوصيل'].includes(newStatus)) {
+            updatedOrder.returnFee = 0;
+            updatedOrder.returnDate = null;
+            updatedOrder.products = order.products?.map((p: any) => ({
+                ...p,
+                returnedQuantity: 0
+            }));
+        }
+
+        // 3. Calculate how many items the order SHOULD hold after this update
+        const newHeldStock = getOrderHeldStock(newStatus, updatedOrder.products || []);
+
+        // 4. Calculate the net difference and explicitly update localProducts
+        const allProductIds = new Set([...Object.keys(oldHeldStock), ...Object.keys(newHeldStock)]);
+        allProductIds.forEach(productId => {
+            const oldQty = oldHeldStock[productId] || 0;
+            const newQty = newHeldStock[productId] || 0;
+            const quantityToReturnToWarehouse = oldQty - newQty; // Positive means we return to warehouse, negative means we take *more* from warehouse
+
+            if (quantityToReturnToWarehouse !== 0) {
+                const idx = localProducts.findIndex(p => p.id === productId);
+                if (idx > -1) {
+                    const currentDBStock = Number(localProducts[idx].stock) || 0;
+                    localProducts[idx].stock = currentDBStock + quantityToReturnToWarehouse;
+                    stockChanges.push({ id: productId, stock: localProducts[idx].stock });
+                }
+            }
+        });
 
         // Optimistic UI update
         setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
@@ -255,30 +300,35 @@ export default function Orders() {
         }
     };
 
-    const statusCycleArray = ['قيد المراجعة', 'تم الشحن', 'تم التوصيل', 'مرتجع', 'ملغي'];
+    const statusCycleArray = ['قيد المراجعة', 'تم الشحن', 'تم التوصيل', 'تسليم جزئي', 'مرتجع', 'ملغي'];
 
-    const handleStatusCycle = (order: any, direction: 'next' | 'prev') => {
-        let currentIndex = statusCycleArray.indexOf(order.status);
-        if (currentIndex === -1) currentIndex = 0;
-        let newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-        if (newIndex < 0) newIndex = statusCycleArray.length - 1;
-        if (newIndex >= statusCycleArray.length) newIndex = 0;
-
-        const nextStatus = statusCycleArray[newIndex];
+    const handleStatusChange = (order: any, nextStatus: string) => {
+        if (order.status === nextStatus) return;
 
         if (nextStatus === 'ملغي') {
             setCancelOrderId(order.id);
             setCancelFee(0);
         } else if (nextStatus === 'مرتجع') {
+            const fullQty: any = {};
+            order.products?.forEach((p: any) => {
+                const alreadyReturned = p.returnedQuantity || 0;
+                fullQty[p.productId] = Math.max(0, p.quantity - alreadyReturned);
+            });
+            // Full return means everything comes back, so update immediately
+            // Fee can be set later or we can prompt a smaller modal just for fee, 
+            // but for smooth UX, we auto-return everything with 0 fee.
+            // If they want to add a return fee, they can edit the order.
+            updateOrderStatus(order.id, nextStatus, { fee: 0, quantities: fullQty });
+        } else if (nextStatus === 'تسليم جزئي' || nextStatus === 'مرتجع جزئي') {
             setReturnOrderId(order.id);
             setReturnFee(0);
             const initialQty: any = {};
             order.products?.forEach((p: any) => {
-                const alreadyReturned = p.returnedQuantity || 0;
-                initialQty[p.productId] = Math.max(0, p.quantity - alreadyReturned);
+                initialQty[p.productId] = 0; // Default to 0, let user explicitly select what is returned
             });
+            setReturnTargetStatus(nextStatus);
             setReturnQuantities(initialQty);
-        } else if ((order.status === 'ملغي' || order.status === 'مرتجع') && ['قيد المراجعة', 'تم الشحن', 'تم التوصيل'].includes(nextStatus)) {
+        } else if ((order.status === 'ملغي' || order.status === 'مرتجع' || order.status === 'تسليم جزئي') && ['قيد المراجعة', 'تم الشحن', 'تم التوصيل'].includes(nextStatus)) {
             setConfirmRestoreOrderId(order.id);
             setConfirmRestoreTargetStatus(nextStatus);
         } else {
@@ -297,6 +347,8 @@ export default function Orders() {
             case 'لاغي':
             case 'مرفوض': return 'bg-rose-100 text-rose-700';
             case 'مرتجع': return 'bg-purple-100 text-purple-700';
+            case 'تسليم جزئي':
+            case 'مرتجع جزئي': return 'bg-indigo-100 text-indigo-700';
             default: return 'bg-slate-100 text-slate-700';
         }
     };
@@ -373,10 +425,34 @@ export default function Orders() {
     };
 
     const confirmDelete = async () => {
-        // Optimistic UI - remove instantly
+        const deletedOrders = orders.filter(o => selectedIds.includes(o.id));
         setOrders(prev => prev.filter(o => !selectedIds.includes(o.id)));
         setSelectedIds([]);
         setDeleteModalOpen(false);
+
+        // Restore stock for deleted orders that were shipped, delivered or partially delivered
+        const stockChanges: { [id: string]: number } = {};
+        for (const order of deletedOrders) {
+            if (['تم الشحن', 'تم التوصيل', 'تسليم جزئي'].includes(order.status)) {
+                order.products?.forEach((p: any) => {
+                    const id = p.productId;
+                    const netQty = Math.max(0, p.quantity - (p.returnedQuantity || 0));
+                    stockChanges[id] = (stockChanges[id] || 0) + netQty;
+                });
+            }
+        }
+
+        // Apply stock changes
+        if (Object.keys(stockChanges).length > 0) {
+            const { data: dbProducts } = await supabase.from('products').select('id, stock').in('id', Object.keys(stockChanges));
+            if (dbProducts) {
+                for (const dbP of dbProducts) {
+                    const newStock = (Number(dbP.stock) || 0) + (stockChanges[dbP.id] || 0);
+                    await supabase.from('products').update({ stock: newStock }).eq('id', dbP.id);
+                }
+            }
+        }
+
         await supabase.from('orders').delete().in('id', selectedIds);
     };
 
@@ -387,6 +463,15 @@ export default function Orders() {
             navigate('/orders/print-bulk');
         }
     };
+
+    // Calculate pagination right before render
+    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+    const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    // Reset pagination when search/filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterStatus, filterStartDate, filterEndDate]);
 
     return (
         <div className="w-full space-y-4">
@@ -558,7 +643,7 @@ export default function Orders() {
                                 Array.from({ length: 7 }).map((_, i) => (
                                     <React.Fragment key={i}><OrderRowSkeleton /></React.Fragment>
                                 ))
-                            ) : filteredOrders.map((order) => (
+                            ) : paginatedOrders.map((order) => (
                                 <tr key={order.id} className={`transition-colors ${getRowColor(order)} ${selectedIds.includes(order.id) ? 'bg-sky-50/50' : ''}`}>
                                     <td className="px-6 py-4 text-center">
                                         <input
@@ -575,30 +660,28 @@ export default function Orders() {
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-800">{order.customer || order.customerName}</td>
                                     <td className="px-6 py-4 font-mono text-slate-600 text-xs" dir="ltr">{order.phone || order.primaryPhone || '-'}</td>
-                                    <td className="px-6 py-4 text-slate-500 font-tajawal text-xs">{order.date || order.orderDate}</td>
-                                    <td className="px-6 py-4 text-slate-600 font-tajawal max-w-[200px] truncate" title={order.products?.map((p: any) => p.name).join('، ')}>
-                                        {order.products?.map((p: any) => p.name).join('، ') || (order.itemsCount ? `${order.itemsCount} منتج` : 'لا يوجد')}
+                                    <td className="px-6 py-4 text-slate-500 font-tajawal text-xs">{order.date || order.orderDate || order.createdAt?.split('T')[0]}</td>
+                                    <td className="px-6 py-4 text-slate-600 font-tajawal max-w-[200px] truncate" title={order.products?.map((p: any) => p.productName || p.name).join('، ')}>
+                                        {order.products?.map((p: any) => p.productName || p.name).join('، ') || (order.itemsCount ? `${order.itemsCount} منتج` : 'لا يوجد')}
                                     </td>
                                     <td className="px-6 py-4 font-bold text-slate-700 font-tajawal">{order.total} ج.م</td>
                                     <td className="px-6 py-4">
-                                        <div className="flex items-center justify-center gap-1">
-                                            <button
-                                                onClick={() => handleStatusCycle(order, 'prev')}
-                                                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors border border-transparent rounded-full"
-                                                title="الحالة السابقة"
+                                        <div className="flex items-center justify-center">
+                                            <select
+                                                value={order.status}
+                                                onChange={(e) => handleStatusChange(order, e.target.value)}
+                                                className={`px-2 py-1.5 w-[140px] text-center text-xs font-bold rounded-none outline-none cursor-pointer appearance-none border-b-2 ${order.status === 'تم التوصيل' ? 'bg-emerald-50 text-emerald-700 border-emerald-300' :
+                                                    order.status === 'تم الشحن' ? 'bg-sky-50 text-sky-700 border-sky-300' :
+                                                        order.status === 'ملغي' ? 'bg-rose-50 text-rose-700 border-rose-300' :
+                                                            order.status === 'مرتجع' ? 'bg-purple-50 text-purple-700 border-purple-300' :
+                                                                order.status === 'تسليم جزئي' || order.status === 'مرتجع جزئي' ? 'bg-indigo-50 text-indigo-700 border-indigo-300' :
+                                                                    'bg-amber-50 text-amber-700 border-amber-300'
+                                                    }`}
                                             >
-                                                <ChevronRight className="w-4 h-4" />
-                                            </button>
-                                            <span className={`px-2 py-1.5 min-w-[100px] text-center text-xs font-bold ${getStatusColor(order.status)}`}>
-                                                {order.status}
-                                            </span>
-                                            <button
-                                                onClick={() => handleStatusCycle(order, 'next')}
-                                                className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors border border-transparent rounded-full"
-                                                title="الحالة التالية"
-                                            >
-                                                <ChevronLeft className="w-4 h-4" />
-                                            </button>
+                                                {statusCycleArray.map((sts) => (
+                                                    <option key={sts} value={sts} className="bg-white text-slate-800">{sts}</option>
+                                                ))}
+                                            </select>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center">
@@ -643,10 +726,25 @@ export default function Orders() {
 
                 {/* Pagination Footer */}
                 <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50">
-                    <span className="text-sm text-slate-500 font-tajawal">عرض {orders.length > 0 ? 1 : 0}-{Math.min(5, orders.length)} من {orders.length} طلب</span>
+                    <span className="text-sm text-slate-500 font-tajawal">
+                        عرض {filteredOrders.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-
+                        {Math.min(currentPage * itemsPerPage, filteredOrders.length)} من {filteredOrders.length} طلب
+                    </span>
                     <div className="flex gap-2">
-                        <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium disabled:opacity-50 transition-colors" disabled>السابق</button>
-                        <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors">التالي</button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1 || filteredOrders.length === 0}
+                            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium disabled:opacity-50 transition-colors"
+                        >
+                            السابق
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages || filteredOrders.length === 0}
+                            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium disabled:opacity-50 transition-colors"
+                        >
+                            التالي
+                        </button>
                     </div>
                 </div>
             </div>
@@ -689,7 +787,7 @@ export default function Orders() {
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
                         <div className="bg-white w-full max-w-xl border border-slate-200 shadow-xl max-h-[90vh] flex flex-col rounded-none">
                             <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50 shrink-0">
-                                <h3 className="font-bold text-slate-800 text-lg font-tajawal">مرتجع الطلب ({returnOrderId})</h3>
+                                <h3 className="font-bold text-slate-800 text-lg font-tajawal">{returnTargetStatus === 'مرتجع' ? 'مرتجع كلي للطلب' : 'مرتجع وتسليم جزئي للطلب'} ({returnOrderId})</h3>
                                 <button onClick={() => setReturnOrderId(null)} className="text-slate-400 hover:text-slate-600 outline-none"><X className="w-5 h-5" /></button>
                             </div>
                             <div className="p-6 space-y-6 overflow-y-auto">
@@ -713,7 +811,7 @@ export default function Orders() {
                                                 const maxReturn = p.quantity - alreadyReturned;
                                                 return (
                                                     <tr key={p.productId} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
-                                                        <td className="py-3 px-3 text-right font-medium text-slate-800 truncate max-w-[150px]">{p.name}</td>
+                                                        <td className="py-3 px-3 text-right font-medium text-slate-800 truncate max-w-[150px]">{p.productName || p.name}</td>
                                                         <td className="py-3 px-3 text-slate-600 font-mono">{p.quantity}</td>
                                                         <td className="py-3 px-3 text-rose-500 font-mono">{alreadyReturned}</td>
                                                         <td className="py-3 px-3">
@@ -746,7 +844,7 @@ export default function Orders() {
                                 </div>
                             </div>
                             <div className="flex gap-2 p-4 border-t border-slate-100 bg-slate-50 shrink-0 font-tajawal">
-                                <button onClick={() => { updateOrderStatus(returnOrderId, 'مرتجع', { fee: returnFee, quantities: returnQuantities }); setReturnOrderId(null); }} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 font-bold transition-colors shadow-sm shadow-purple-200">تأكيد المرتجع</button>
+                                <button onClick={() => { updateOrderStatus(returnOrderId, returnTargetStatus, { fee: returnFee, quantities: returnQuantities }); setReturnOrderId(null); }} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 font-bold transition-colors shadow-sm shadow-purple-200">تأكيد العملية</button>
                                 <button onClick={() => setReturnOrderId(null)} className="flex-1 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 py-2.5 font-bold transition-colors">إغلاق</button>
                             </div>
                         </div>
@@ -763,8 +861,11 @@ export default function Orders() {
                                 <Trash2 className="w-6 h-6 text-rose-600" />
                             </div>
                             <h3 className="text-lg font-bold text-center text-slate-800 mb-2 font-tajawal">تأكيد الحذف</h3>
-                            <p className="text-slate-500 text-center text-sm mb-6 font-tajawal">
-                                هل أنت متأكد من رغبتك في حذف {selectedIds.length} طلب؟ هذا الإجراء لن يؤثر على المخزون ولكنه سيمسح الطلبات نهائياً من النظام.
+                            <p className="text-slate-500 text-center text-sm mb-4 font-tajawal">
+                                هل أنت متأكد من رغبتك في حذف {selectedIds.length} طلب؟ سيمسح ذلك الطلبات نهائياً من النظام.
+                            </p>
+                            <p className="text-slate-600 text-center text-xs font-bold bg-amber-50 p-3 mb-6 font-tajawal rounded border border-amber-200">
+                                <strong className="text-amber-700">ملاحظة هامة:</strong> إذا كانت بعض الطلبات في حالة (تم الشحن، تم التوصيل، أو تسليم جزئي)، فسيتم إرجاع منتجاتها إلى رصيد المخزون تلقائياً قبل الحذف.
                             </p>
                             <div className="flex gap-3 font-tajawal">
                                 <button

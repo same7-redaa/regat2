@@ -18,6 +18,9 @@ export default function Inventory() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 30;
+
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('products').select('*').order('id');
     if (!error && data) {
@@ -86,6 +89,13 @@ export default function Inventory() {
 
     return matchesSearch && matchesStatus && matchesCategory;
   });
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, filterCategory]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -197,7 +207,7 @@ export default function Inventory() {
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100">
-                {filteredProducts.map((product) => {
+                {paginatedProducts.map((product) => {
                   let statusCls = 'hover:bg-slate-50';
                   if (product.stock === 0) statusCls = 'bg-rose-50/40 hover:bg-rose-50/80';
                   else if (product.stock <= (Number(product.lowStockWarning) || 5)) statusCls = 'bg-amber-50/40 hover:bg-amber-50/80';
@@ -255,10 +265,30 @@ export default function Inventory() {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-100 flex justify-between items-center bg-slate-50">
-          <span className="text-sm text-slate-500">عرض {filteredProducts.length} من {products.length} منتج</span>
+        {/* Pagination Footer */}
+        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 mt-auto">
+          <span className="text-sm text-slate-500 font-tajawal">
+            عرض {filteredProducts.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}-
+            {Math.min(currentPage * itemsPerPage, filteredProducts.length)} من {filteredProducts.length} منتج
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1 || filteredProducts.length === 0}
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium disabled:opacity-50 transition-colors"
+            >
+              السابق
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || filteredProducts.length === 0}
+              className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium disabled:opacity-50 transition-colors"
+            >
+              التالي
+            </button>
+          </div>
         </div>
+
       </div>
 
       {/* Delete Confirmation Modal */}

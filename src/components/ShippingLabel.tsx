@@ -104,8 +104,10 @@ export function injectPrintStyle() {
             body * { visibility: hidden; }
             #print-area, #print-area * { visibility: visible; }
             #print-area {
-                position: fixed;
-                inset: 0;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
                 display: flex;
                 flex-direction: column;
                 gap: 6mm;
