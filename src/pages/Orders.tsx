@@ -315,27 +315,26 @@ export default function Orders() {
 
         if (nextStatus === 'ملغي') {
             setCancelOrderId(order.id);
-            setCancelFee(0);
-        } else if (nextStatus === 'مرتجع') {
-            const fullQty: any = {};
-            order.products?.forEach((p: any) => {
-                const alreadyReturned = p.returnedQuantity || 0;
-                fullQty[p.productId] = Math.max(0, p.quantity - alreadyReturned);
-            });
-            // Full return means everything comes back, so update immediately
-            // Fee can be set later or we can prompt a smaller modal just for fee, 
-            // but for smooth UX, we auto-return everything with 0 fee.
-            // If they want to add a return fee, they can edit the order.
-            updateOrderStatus(order.id, nextStatus, { fee: 0, quantities: fullQty });
-        } else if (nextStatus === 'تسليم جزئي' || nextStatus === 'مرتجع جزئي') {
+            setCancelFee(Number(order.shipping?.actualCost) || 0);
+        } else if (nextStatus === 'مرتجع' || nextStatus === 'تسليم جزئي' || nextStatus === 'مرتجع جزئي') {
             setReturnOrderId(order.id);
-            setReturnFee(0);
-            const initialQty: any = {};
-            order.products?.forEach((p: any) => {
-                initialQty[p.productId] = 0; // Default to 0, let user explicitly select what is returned
-            });
             setReturnTargetStatus(nextStatus);
-            setReturnQuantities(initialQty);
+            setReturnFee(Number(order.shipping?.actualCost) || 0);
+
+            if (nextStatus === 'مرتجع') {
+                const fullQty: any = {};
+                order.products?.forEach((p: any) => {
+                    const alreadyReturned = p.returnedQuantity || 0;
+                    fullQty[p.productId] = Math.max(0, p.quantity - alreadyReturned);
+                });
+                setReturnQuantities(fullQty);
+            } else {
+                const initialQty: any = {};
+                order.products?.forEach((p: any) => {
+                    initialQty[p.productId] = 0;
+                });
+                setReturnQuantities(initialQty);
+            }
         } else if ((order.status === 'ملغي' || order.status === 'مرتجع' || order.status === 'تسليم جزئي') && ['قيد المراجعة', 'تم الشحن', 'تم التوصيل'].includes(nextStatus)) {
             setConfirmRestoreOrderId(order.id);
             setConfirmRestoreTargetStatus(nextStatus);

@@ -163,6 +163,7 @@ export default function Home() {
         actualShipCosts += companyShippingCost;
       }
 
+      const baseShipCost = Number(o.shipping?.actualCost) || 0;
       if (status === 'مرتجع') {
         retCosts += Number(o.returnFee) || 0;
       } else if (status === 'ملغي' || status === 'مرفوض') {

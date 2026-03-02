@@ -1,0 +1,21 @@
+{
+    "name": "REGAT",
+    "short_name": "REGAT",
+    "description": "نظام إدارة المخزون والطلبات",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#f8fafc",
+    "theme_color": "#008eff",
+    "icons": [
+        {
+            "src": "/logo.jpeg",
+            "sizes": "192x192",
+            "type": "image/jpeg"
+        },
+        {
+            "src": "/logo.jpeg",
+            "sizes": "512x512",
+            "type": "image/jpeg"
+        }
+    ]
+}
