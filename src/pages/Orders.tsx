@@ -107,6 +107,7 @@ export default function Orders() {
                     const companyName = row['شركة الشحن']?.toString().trim();
                     const notes = row['ملاحظات'] || '';
                     const alertDuration = parseInt(row['مدة التنبيه (يوم)'] || row['مدة التنبيه']) || 0;
+                    const importedStatus = row['الحالة']?.toString().trim() || '';
 
                     let shippingCost = 0, actualCost = 0, companyId = '', locationId = '';
                     let matchedCompanyName = companyName || 'غير محدد';
@@ -166,7 +167,7 @@ export default function Orders() {
                         products: orderProducts,
                         shipping: { companyId, companyName: matchedCompanyName, locationId, locationName: matchedLocationName, detailedAddress: address, shippingCost, actualCost },
                         discount: 0, subtotal, total: subtotal + shippingCost,
-                        status: hasUnlinkedItems ? 'قيد المراجعة' : 'تم التوصيل', alertDurationDays: alertDuration,
+                        status: hasUnlinkedItems ? 'قيد المراجعة' : (importedStatus || 'تم الشحن'), alertDurationDays: alertDuration,
                         hasUnlinkedItems, unlinkedDetails, notes,
                         createdAt: new Date().toISOString()
                     });
@@ -191,6 +192,46 @@ export default function Orders() {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    const handleExportExcel = () => {
+        const ordersToExport = filteredOrders;
+        if (ordersToExport.length === 0) {
+            addToast('لا توجد طلبات لتصديرها بناءً على الفلتر الحالي.', 'error');
+            return;
+        }
+
+        const rows = ordersToExport.map(order => {
+            const productsStr = order.products?.map((p: any) => `${p.productName || p.name} (${p.quantity})`).join(' | ') || '';
+            return {
+                'رقم الطلب': order.id,
+                'اسم العميل': order.customer || order.customerName || '',
+                'الهاتف': order.phone || order.primaryPhone || '',
+                'رقم إضافي': order.secondaryPhone || '',
+                'التاريخ': order.date || order.orderDate || order.createdAt?.split('T')[0] || '',
+                'المحافظة': order.shipping?.locationName || '',
+                'العنوان': order.shipping?.detailedAddress || '',
+                'شركة الشحن': order.shipping?.companyName || '',
+                'المنتجات': productsStr,
+                'إجمالي المنتجات': order.subtotal || 0,
+                'تكلفة الشحن': order.shipping?.shippingCost || 0,
+                'الإجمالي الكلي': order.total || 0,
+                'الحالة': order.status || '',
+                'ملاحظات': order.notes || '',
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [
+            { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 },
+            { wch: 15 }, { wch: 35 }, { wch: 15 }, { wch: 40 }, { wch: 15 },
+            { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 25 }
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'الطلبات');
+        const statusLabel = filterStatus === 'all' ? 'جميع_الحالات' : filterStatus;
+        XLSX.writeFile(wb, `طلبات_${statusLabel}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        addToast(`تم تصدير ${ordersToExport.length} طلب بنجاح!`);
+    };
+
     const handleDownloadTemplate = () => {
         const templateData = [
             {
@@ -200,6 +241,7 @@ export default function Orders() {
                 'المحافظة': 'القاهرة',
                 'العنوان': 'شارع التحرير، أمام مسجد النور، الدور الثاني',
                 'شركة الشحن': 'بوسطة',
+                'الحالة': 'تم الشحن',
                 'مدة التنبيه (يوم)': 5,
                 'ملاحظات': 'يفضل التغليف الجيد',
                 'منتج 1': 'ساعة فضي',
@@ -529,11 +571,18 @@ export default function Orders() {
                         <span>تحميل القالب</span>
                     </button>
                     <button
+                        onClick={handleExportExcel}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 font-medium transition-colors"
+                    >
+                        <FileText className="w-4 h-4" />
+                        <span>تصدير</span>
+                    </button>
+                    <button
                         onClick={() => fileInputRef.current?.click()}
                         className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 font-medium transition-colors"
                     >
                         <Upload className="w-4 h-4" />
-                        <span>استيراد </span>
+                        <span>استيراد</span>
                     </button>
                     <Link
                         to="/orders/add" // Assuming you will add this page soon
