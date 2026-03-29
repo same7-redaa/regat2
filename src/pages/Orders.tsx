@@ -81,7 +81,8 @@ export default function Orders() {
                 const data = XLSX.utils.sheet_to_json(ws);
 
                 const newOrdersToInsert: any[] = [];
-                const stockUpdates: { id: string, stock: number }[] = [];
+                // Track total stock deductions per product across all imported orders
+                const stockDeductions: { [productId: string]: number } = {};
                 const localProducts = [...products];
 
                 const normalizeAr = (s: string) => {
@@ -152,11 +153,14 @@ export default function Orders() {
                     }
 
                     if (!hasUnlinkedItems) {
-                        tempStockChanges.forEach(change => {
-                            const pData = localProducts[change.idx];
-                            pData.stock = Math.max(0, (Number(pData.stock) || 0) - change.qty);
-                            stockUpdates.push({ id: pData.id, stock: pData.stock });
-                        });
+                        const activeImportStatuses = ['تم الشحن', 'تم التوصيل', 'تسليم جزئي', 'مرتجع جزئي'];
+                        const effectiveStatus = importedStatus || 'تم الشحن';
+                        if (activeImportStatuses.includes(effectiveStatus)) {
+                            tempStockChanges.forEach(change => {
+                                const pData = localProducts[change.idx];
+                                stockDeductions[pData.id] = (stockDeductions[pData.id] || 0) + change.qty;
+                            });
+                        }
                     }
 
                     newOrdersToInsert.push({
@@ -176,9 +180,17 @@ export default function Orders() {
                 if (newOrdersToInsert.length > 0) {
                     await supabase.from('orders').insert(newOrdersToInsert);
                 }
-                // Update stock for each modified product
-                for (const su of stockUpdates) {
-                    await supabase.from('products').update({ stock: su.stock }).eq('id', su.id);
+                // Apply stock deductions using FRESH DB reads
+                const deductionIds = Object.keys(stockDeductions);
+                if (deductionIds.length > 0) {
+                    const { data: freshProducts } = await supabase.from('products').select('id, stock').in('id', deductionIds);
+                    if (freshProducts) {
+                        for (const fp of freshProducts) {
+                            const deduction = stockDeductions[fp.id] || 0;
+                            const newStock = Math.max(0, (Number(fp.stock) || 0) - deduction);
+                            await supabase.from('products').update({ stock: newStock }).eq('id', fp.id);
+                        }
+                    }
                 }
 
                 setOrders(prev => [...newOrdersToInsert, ...prev]);
@@ -272,10 +284,6 @@ export default function Orders() {
 
         const oldStatus = order.status;
 
-        const stockChanges: { id: string, stock: number }[] = [];
-        const { data: productsData } = await supabase.from('products').select('*');
-        const localProducts = [...(productsData || [])];
-
         // 1. Calculate how many items this order CURRENTLY holds from the warehouse 
         // (Only Shipped, Delivered, or Partially Delivered statuses actually hold stock)
         const activeStatuses = ['تم الشحن', 'تم التوصيل', 'تسليم جزئي', 'مرتجع جزئي'];
@@ -323,20 +331,16 @@ export default function Orders() {
         // 3. Calculate how many items the order SHOULD hold after this update
         const newHeldStock = getOrderHeldStock(newStatus, updatedOrder.products || []);
 
-        // 4. Calculate the net difference and explicitly update localProducts
+        // 4. Calculate the net stock adjustment for each product
         const allProductIds = new Set([...Object.keys(oldHeldStock), ...Object.keys(newHeldStock)]);
+        const stockAdjustments: { id: string, adjustment: number }[] = [];
         allProductIds.forEach(productId => {
             const oldQty = oldHeldStock[productId] || 0;
             const newQty = newHeldStock[productId] || 0;
-            const quantityToReturnToWarehouse = oldQty - newQty; // Positive means we return to warehouse, negative means we take *more* from warehouse
+            const quantityToReturnToWarehouse = oldQty - newQty; // Positive = return to warehouse, negative = take from warehouse
 
             if (quantityToReturnToWarehouse !== 0) {
-                const idx = localProducts.findIndex(p => p.id === productId);
-                if (idx > -1) {
-                    const currentDBStock = Number(localProducts[idx].stock) || 0;
-                    localProducts[idx].stock = currentDBStock + quantityToReturnToWarehouse;
-                    stockChanges.push({ id: productId, stock: localProducts[idx].stock });
-                }
+                stockAdjustments.push({ id: productId, adjustment: quantityToReturnToWarehouse });
             }
         });
 
@@ -345,8 +349,20 @@ export default function Orders() {
 
         // Persist to Supabase
         await supabase.from('orders').update(updatedOrder).eq('id', orderId);
-        for (const s of stockChanges) {
-            await supabase.from('products').update({ stock: s.stock }).eq('id', s.id);
+
+        // Apply stock changes using FRESH DB reads to prevent race conditions
+        if (stockAdjustments.length > 0) {
+            const productIds = stockAdjustments.map(s => s.id);
+            const { data: freshProducts } = await supabase.from('products').select('id, stock').in('id', productIds);
+            if (freshProducts) {
+                for (const fp of freshProducts) {
+                    const adj = stockAdjustments.find(s => s.id === fp.id);
+                    if (adj) {
+                        const newStock = Math.max(0, (Number(fp.stock) || 0) + adj.adjustment);
+                        await supabase.from('products').update({ stock: newStock }).eq('id', fp.id);
+                    }
+                }
+            }
         }
     };
 

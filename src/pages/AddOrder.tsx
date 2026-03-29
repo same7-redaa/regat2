@@ -223,11 +223,13 @@ export default function AddOrder() {
 
         // Async save logic:
         let oldOrderCreatedAt = new Date().toISOString();
+        let oldOrderProducts: any[] | null = null;
 
-        // If editing, get createdAt from existing order (don't touch stock — that's managed by Orders.tsx status changes only)
+        // If editing, save OLD order data BEFORE upsert for stock diff calculation
         if (isEditing && editId) {
-            const { data: oldOrder } = await supabase.from('orders').select('createdAt').eq('id', editId).single();
+            const { data: oldOrder } = await supabase.from('orders').select('createdAt, products, status').eq('id', editId).single();
             if (oldOrder?.createdAt) oldOrderCreatedAt = oldOrder.createdAt;
+            if (oldOrder?.products) oldOrderProducts = oldOrder.products;
         }
 
         const orderPayload = {
@@ -250,18 +252,65 @@ export default function AddOrder() {
         };
 
         const { error } = await supabase.from('orders').upsert(orderPayload, { onConflict: 'id' });
+        if (error) { setSaving(false); alert('حدث خطأ أثناء حفظ الطلب: ' + error.message); return; }
 
-        // Instant Stock Deduction for New Orders
-        if (!isEditing && !error) {
-            for (const p of validProducts) {
-                const prodDef = availableProducts.find((ap: any) => ap.id === p.productId);
-                if (prodDef) {
-                    const newStock = Math.max(0, (Number(prodDef.stock) || 0) - p.quantity);
-                    await supabase.from('products').update({ stock: newStock }).eq('id', p.productId);
+        // Stock management: always read FRESH stock from DB before modifying
+        const activeStatuses = ['تم الشحن', 'تم التوصيل', 'تسليم جزئي', 'مرتجع جزئي'];
+        const orderIsActive = activeStatuses.includes(orderPayload.status);
+
+        if (isEditing && editId) {
+            // When editing: calculate the difference between old and new products
+            // oldOrderProducts was saved BEFORE the upsert to get the original data
+            const oldWasActive = activeStatuses.includes(existingStatus);
+
+            // Build stock adjustment map: { productId: netChange }
+            // Positive = need to ADD to stock (return), Negative = need to SUBTRACT from stock (deduct)
+            const stockAdjustments: { [id: string]: number } = {};
+
+            // If old order was active, its products were deducted → we "return" them
+            if (oldWasActive && oldOrderProducts) {
+                for (const p of oldOrderProducts) {
+                    const netHeld = Math.max(0, (p.quantity || 0) - (p.returnedQuantity || 0));
+                    stockAdjustments[p.productId] = (stockAdjustments[p.productId] || 0) + netHeld;
+                }
+            }
+
+            // If new order is active, its products need to be deducted
+            if (orderIsActive) {
+                for (const p of validProducts) {
+                    stockAdjustments[p.productId] = (stockAdjustments[p.productId] || 0) - p.quantity;
+                }
+            }
+
+            // Apply adjustments using fresh DB values
+            const productIds = Object.keys(stockAdjustments).filter(id => stockAdjustments[id] !== 0);
+            if (productIds.length > 0) {
+                const { data: freshProducts } = await supabase.from('products').select('id, stock').in('id', productIds);
+                if (freshProducts) {
+                    for (const fp of freshProducts) {
+                        const adjustment = stockAdjustments[fp.id] || 0;
+                        const newStock = Math.max(0, (Number(fp.stock) || 0) + adjustment);
+                        await supabase.from('products').update({ stock: newStock }).eq('id', fp.id);
+                    }
+                }
+            }
+        } else if (!isEditing && orderIsActive) {
+            // New order with active status: deduct stock using FRESH DB values
+            const productIds = validProducts.map(p => p.productId);
+            const { data: freshProducts } = await supabase.from('products').select('id, stock').in('id', productIds);
+            if (freshProducts) {
+                // Build quantity map for the order
+                const orderQtyMap: { [id: string]: number } = {};
+                for (const p of validProducts) {
+                    orderQtyMap[p.productId] = (orderQtyMap[p.productId] || 0) + p.quantity;
+                }
+                for (const fp of freshProducts) {
+                    const qtyToDeduct = orderQtyMap[fp.id] || 0;
+                    const newStock = Math.max(0, (Number(fp.stock) || 0) - qtyToDeduct);
+                    await supabase.from('products').update({ stock: newStock }).eq('id', fp.id);
                 }
             }
         }
-        if (error) { setSaving(false); alert('حدث خطأ أثناء حفظ الطلب: ' + error.message); return; }
 
         navigate('/orders');
     };
