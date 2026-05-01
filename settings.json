@@ -1,0 +1,11 @@
+[
+  {
+    "id": "tenant_info",
+    "data": {
+      "id": "local_tenant",
+      "store_name": "سام"
+    },
+    "updated_at": "2026-03-22T21:09:03.517Z",
+    "deleted": false
+  }
+]

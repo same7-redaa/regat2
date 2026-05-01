@@ -39,6 +39,7 @@ export default function Orders() {
     const [filterLocation, setFilterLocation] = useState('all');
     const [filterStartDate, setFilterStartDate] = useState('');
     const [filterEndDate, setFilterEndDate] = useState('');
+    const [filterProduct, setFilterProduct] = useState('all');
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 30;
@@ -486,7 +487,11 @@ export default function Orders() {
             if (filterEndDate && orderDateStr > filterEndDate) matchesDate = false;
         }
 
-        return matchesSearch && matchesStatus && matchesLocation && matchesDate;
+        const matchesProduct = filterProduct === 'all' || (
+            order.products?.some((p: any) => p.productId === filterProduct)
+        );
+
+        return matchesSearch && matchesStatus && matchesLocation && matchesDate && matchesProduct;
     });
 
     const uniqueLocations = Array.from(new Set(orders.map(o => o.shipping?.locationName || 'غير محدد'))).filter(Boolean);
@@ -554,7 +559,7 @@ export default function Orders() {
     // Reset pagination when search/filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, filterStatus, filterStartDate, filterEndDate]);
+    }, [searchTerm, filterStatus, filterStartDate, filterEndDate, filterLocation, filterProduct]);
 
     return (
         <div className="w-full space-y-4">
@@ -613,8 +618,8 @@ export default function Orders() {
             <div className="bg-white shadow-sm border border-slate-100 flex flex-col">
                 {/* Filters Pane */}
                 {showFilters && (
-                    <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row gap-4">
-                        <div className="flex-1">
+                    <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row flex-wrap gap-4">
+                        <div className="flex-1 min-w-[150px]">
                             <label className="block text-xs font-bold text-slate-500 mb-1 font-tajawal">الحالة</label>
                             <select
                                 value={filterStatus}
@@ -629,7 +634,7 @@ export default function Orders() {
                                 <option value="ملغي">ملغي / لاغي</option>
                             </select>
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-[150px]">
                             <label className="block text-xs font-bold text-slate-500 mb-1 font-tajawal">المحافظة</label>
                             <select
                                 value={filterLocation}
@@ -642,7 +647,20 @@ export default function Orders() {
                                 ))}
                             </select>
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-[180px]">
+                            <label className="block text-xs font-bold text-slate-500 mb-1 font-tajawal">المنتج</label>
+                            <select
+                                value={filterProduct}
+                                onChange={(e) => setFilterProduct(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 bg-white focus:ring-sky-500 focus:border-sky-500 text-sm outline-none font-tajawal cursor-pointer"
+                            >
+                                <option value="all">جميع المنتجات</option>
+                                {products.map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.productName}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex-1 min-w-[140px]">
                             <label className="block text-xs font-bold text-slate-500 mb-1 font-tajawal">من تاريخ</label>
                             <input
                                 type="date"
@@ -651,7 +669,7 @@ export default function Orders() {
                                 className="w-full px-3 py-2 border border-slate-300 bg-white focus:ring-sky-500 focus:border-sky-500 text-sm outline-none font-sans cursor-pointer"
                             />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-[140px]">
                             <label className="block text-xs font-bold text-slate-500 mb-1 font-tajawal">إلى تاريخ</label>
                             <input
                                 type="date"
@@ -662,7 +680,7 @@ export default function Orders() {
                         </div>
                         <div className="flex items-end">
                             <button
-                                onClick={() => { setFilterStatus('all'); setFilterLocation('all'); setFilterStartDate(''); setFilterEndDate(''); setSearchTerm(''); }}
+                                onClick={() => { setFilterStatus('all'); setFilterLocation('all'); setFilterProduct('all'); setFilterStartDate(''); setFilterEndDate(''); setSearchTerm(''); }}
                                 className="w-full sm:w-auto px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold transition-colors font-tajawal h-[38px]"
                             >
                                 إزالة الفلاتر

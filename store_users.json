@@ -1,0 +1,24 @@
+[
+  {
+    "id": "1774213743359",
+    "data": {
+      "id": "1774213743359",
+      "name": "المدير العام",
+      "username": "sam",
+      "password": "sam",
+      "role": "admin",
+      "permissions": [
+        "dashboard",
+        "inventory",
+        "pos",
+        "customers",
+        "invoices",
+        "expenses",
+        "users",
+        "settings"
+      ]
+    },
+    "updated_at": "2026-03-22T21:09:03.363Z",
+    "deleted": false
+  }
+]

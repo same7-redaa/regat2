@@ -1,0 +1,32 @@
+[
+  {
+    "id": "INV-784932",
+    "data": {
+      "id": "INV-784932",
+      "date": "2026-03-22",
+      "total": 40,
+      "paid": 0,
+      "remaining": 0,
+      "discount": 0,
+      "items": [
+        {
+          "barcode": "5064710576",
+          "dateAdded": "2026-03-22",
+          "name": "سامح",
+          "category": "زيت",
+          "purchasePrice": 10,
+          "sellingPrice": 20,
+          "quantity": 50,
+          "lowStockAlert": 5,
+          "id": "1774213886244",
+          "initialQuantity": 50,
+          "cartQuantity": 2
+        }
+      ],
+      "taxRate": 0,
+      "paymentMethod": "cash"
+    },
+    "updated_at": "2026-03-22T21:11:57.233Z",
+    "deleted": false
+  }
+]
