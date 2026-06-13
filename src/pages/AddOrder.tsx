@@ -224,6 +224,15 @@ export default function AddOrder() {
         // Async save logic:
         let oldOrderCreatedAt = new Date().toISOString();
         let oldOrderProducts: any[] | null = null;
+        let orderId = editId;
+
+        if (!isEditing) {
+            const { data: existingOrdersData } = await supabase.from('orders').select('id');
+            const existingIds = new Set(existingOrdersData?.map(o => o.id) || []);
+            do {
+                orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+            } while (existingIds.has(orderId));
+        }
 
         // If editing, save OLD order data BEFORE upsert for stock diff calculation
         if (isEditing && editId) {
@@ -233,7 +242,7 @@ export default function AddOrder() {
         }
 
         const orderPayload = {
-            id: isEditing ? editId! : `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+            id: orderId!,
             customerName, primaryPhone, secondaryPhone, orderDate, orderTime,
             products: validProducts.map(p => {
                 const prodDef = availableProducts.find((ap: any) => ap.id === p.productId);

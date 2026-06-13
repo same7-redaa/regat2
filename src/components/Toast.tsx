@@ -24,7 +24,7 @@ export function ToastContainer({ toasts, onRemove }: ToastProps) {
     );
 }
 
-function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: string) => void }) {
+function ToastItem({ toast, onRemove }: { key?: string; toast: ToastMessage; onRemove: (id: string) => void }) {
     useEffect(() => {
         const timer = setTimeout(() => onRemove(toast.id), 4000);
         return () => clearTimeout(timer);

@@ -72,6 +72,8 @@ export default function Orders() {
         let products = prodData || [];
         const { data: compData } = await supabase.from('shipping_companies').select('*');
         let companies = compData || [];
+        const { data: existingOrdersData } = await supabase.from('orders').select('id');
+        const existingIds = new Set(existingOrdersData?.map(o => o.id) || []);
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
@@ -164,8 +166,14 @@ export default function Orders() {
                         }
                     }
 
+                    let newId = '';
+                    do {
+                        newId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
+                    } while (existingIds.has(newId));
+                    existingIds.add(newId);
+
                     newOrdersToInsert.push({
-                        id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+                        id: newId,
                         customerName, primaryPhone: phone, secondaryPhone: altPhone,
                         orderDate: new Date().toISOString().split('T')[0],
                         orderTime: new Date().toTimeString().split(' ')[0].slice(0, 5),
@@ -179,7 +187,10 @@ export default function Orders() {
                 });
 
                 if (newOrdersToInsert.length > 0) {
-                    await supabase.from('orders').insert(newOrdersToInsert);
+                    const { error: insertError } = await supabase.from('orders').insert(newOrdersToInsert);
+                    if (insertError) {
+                        throw new Error(`خطأ قاعدة البيانات أثناء إدراج الطلبات: ${insertError.message}`);
+                    }
                 }
                 // Apply stock deductions using FRESH DB reads
                 const deductionIds = Object.keys(stockDeductions);
@@ -473,7 +484,10 @@ export default function Orders() {
     const filteredOrders = orders.filter(order => {
         const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (order.customer && order.customer.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            (order.customerName && order.customerName.toLowerCase().includes(searchTerm.toLowerCase()));
+            (order.customerName && order.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (order.phone && order.phone.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (order.primaryPhone && order.primaryPhone.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (order.secondaryPhone && order.secondaryPhone.toLowerCase().includes(searchTerm.toLowerCase()));
 
         const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
 
