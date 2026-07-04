@@ -7,7 +7,7 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
 
     return (
         <div 
-            className="bg-white border border-slate-300 md:border-2 md:border-slate-800 flex flex-col shipping-label-card transition-all w-full max-w-[380px] min-h-[480px] p-4 shadow-sm mx-auto justify-between text-slate-900"
+            className="bg-white border border-slate-300 md:border-2 md:border-slate-800 flex flex-col shipping-label-card transition-all w-full max-w-[380px] aspect-[2/3] p-4 shadow-sm mx-auto justify-between text-slate-900"
             style={{ fontFamily: "'Cairo', sans-serif", direction: 'rtl', pageBreakInside: 'avoid', breakInside: 'avoid' }}
         >
             {/* Header: Company name (right) + Order ID (left) */}
@@ -103,11 +103,11 @@ export function injectPrintStyle() {
     style.innerHTML = `
         @media print {
             @page {
-                size: 100mm 130mm;
-                margin: 0;
+                size: auto; /* Let the browser/driver determine the size based on printer stock */
+                margin: 0;  /* Removes browser default headers and footers */
             }
             html, body {
-                width: 100mm !important;
+                width: 100% !important;
                 height: auto !important;
                 margin: 0 !important;
                 padding: 0 !important;
@@ -125,7 +125,7 @@ export function injectPrintStyle() {
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: 100mm !important;
+                width: 100% !important;
                 height: auto !important;
                 padding: 0 !important;
                 margin: 0 !important;
@@ -134,14 +134,13 @@ export function injectPrintStyle() {
                 gap: 0;
             }
             .shipping-label-card {
-                width: 100mm !important;
-                height: 130mm !important;
-                max-width: 100mm !important;
-                max-height: 130mm !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                aspect-ratio: 2 / 3 !important; /* standard 4x6 label ratio */
                 box-sizing: border-box !important;
                 border: none !important;
                 margin: 0 !important;
-                padding: 5mm !important;
+                padding: 6% !important; /* relative padding so it scales dynamically */
                 page-break-after: always;
                 break-after: page;
                 display: flex !important;
@@ -153,6 +152,7 @@ export function injectPrintStyle() {
     `;
     document.head.appendChild(style);
 }
+
 
 
 
