@@ -103,12 +103,14 @@ export function injectPrintStyle() {
     style.innerHTML = `
         @media print {
             @page {
-                size: auto; /* Uses the default paper size defined in printer preferences */
-                margin: 0;  /* Removes browser headers and margins */
-            }
-            body {
+                size: 100mm 130mm;
                 margin: 0;
-                padding: 0;
+            }
+            html, body {
+                width: 100mm !important;
+                height: auto !important;
+                margin: 0 !important;
+                padding: 0 !important;
                 background: white;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -123,7 +125,8 @@ export function injectPrintStyle() {
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: 100% !important;
+                width: 100mm !important;
+                height: auto !important;
                 padding: 0 !important;
                 margin: 0 !important;
                 display: flex;
@@ -131,23 +134,25 @@ export function injectPrintStyle() {
                 gap: 0;
             }
             .shipping-label-card {
-                width: 100% !important;
-                max-width: 100% !important;
-                height: 100vh !important;
+                width: 100mm !important;
+                height: 130mm !important;
+                max-width: 100mm !important;
+                max-height: 130mm !important;
                 box-sizing: border-box !important;
                 border: none !important;
                 margin: 0 !important;
-                padding: 6mm !important;
+                padding: 5mm !important;
                 page-break-after: always;
                 break-after: page;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
                 box-shadow: none !important;
             }
         }
     `;
     document.head.appendChild(style);
 }
+
 
 
