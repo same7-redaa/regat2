@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Printer, ArrowRight, Settings } from 'lucide-react';
+import { Printer, ArrowRight } from 'lucide-react';
 import { ShippingLabel, injectPrintStyle } from '../components/ShippingLabel';
 import { getSettings } from './Settings';
 import { supabase } from '../lib/supabase';
@@ -47,31 +47,35 @@ export default function PrintBulk() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-
                     <button
                         onClick={handlePrint}
-                        className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-2 font-bold transition-colors"
+                        className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-2 font-bold transition-colors shadow-sm"
                     >
                         <Printer className="w-4 h-4" />
-                        طباعة الآن
+                        طباعة الكل
                     </button>
                 </div>
             </div>
 
-            {/* Company name quick override */}
-            <div className="flex items-center gap-3 print:hidden">
-                <label className="text-sm text-slate-500 whitespace-nowrap">اسم الشركة على البوليصة:</label>
-                <input
-                    type="text"
-                    value={companyName}
-                    onChange={e => setCompanyName(e.target.value)}
-                    placeholder="اسم المتجر / الشركة"
-                    className="flex-1 px-3 py-1.5 border border-slate-300 text-sm focus:outline-none focus:border-sky-500 transition-colors"
-                />
+            {/* Print Settings Toolbar */}
+            <div className="bg-slate-50 border border-slate-200 p-4 print:hidden flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center rounded-sm">
+                <div className="flex items-center gap-3 flex-1">
+                    <label className="text-sm font-bold text-slate-600 whitespace-nowrap">اسم الشركة على البوليصة:</label>
+                    <input
+                        type="text"
+                        value={companyName}
+                        onChange={e => setCompanyName(e.target.value)}
+                        placeholder="اسم المتجر / الشركة"
+                        className="w-full px-3 py-1.5 border border-slate-300 text-sm focus:outline-none focus:border-sky-500 bg-white transition-colors text-slate-800 font-medium"
+                    />
+                </div>
+                <div className="text-xs text-slate-400 font-medium">
+                    * يتم ضبط المقاس تلقائياً ليناسب طابعتك الحرارية الموصولة بالكمبيوتر.
+                </div>
             </div>
 
-            {/* Labels - always vertical, fixed compact size */}
-            <div id="print-area" className="space-y-3 print:space-y-[6mm]">
+            {/* Labels preview container */}
+            <div id="print-area" className="flex flex-col gap-6 items-center bg-slate-50/50 p-6 border border-slate-100 rounded-sm print:bg-transparent print:p-0 print:border-none">
                 {orders.map((order: any) => (
                     <ShippingLabel key={order.id} order={order} companyName={companyName} />
                 ))}
