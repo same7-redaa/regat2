@@ -21,7 +21,7 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
                 </div>
                 <div className="text-left" dir="ltr">
                     <div className="font-bold text-slate-700">{order.id}</div>
-                    <div className="text-slate-400">{order.orderDate} {order.orderTime}</div>
+                    <div className="text-slate-400 text-[12px] font-semibold">{order.orderDate} {order.orderTime}</div>
                 </div>
             </div>
 
@@ -153,13 +153,13 @@ export function injectPrintStyle() {
                 gap: 0 !important;
             }
             .shipping-label-card {
-                width: 100% !important;
-                max-width: 100% !important;
+                width: 95% !important;
+                max-width: 95% !important;
                 height: auto !important; /* Grow dynamically to fit content */
                 aspect-ratio: auto !important; /* Do not lock to a fixed ratio to avoid overflows */
                 box-sizing: border-box !important;
                 border: none !important;
-                margin: 0 !important;
+                margin: 0 auto !important; /* Centered horizontally to equalize left/right margins */
                 padding: 4% 5% !important; /* relative padding so it scales dynamically */
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
