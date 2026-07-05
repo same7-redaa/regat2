@@ -118,37 +118,62 @@ export function injectPrintStyle() {
                 print-color-adjust: exact;
             }
             body * {
-                visibility: hidden;
+                visibility: hidden !important;
+            }
+            /* Collapse parent layout elements' heights and margins to zero to prevent blank page at top */
+            #root, 
+            #root > div, 
+            #root > div > div, 
+            main, 
+            main > div {
+                height: 0 !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                position: static !important;
+                overflow: visible !important;
             }
             #print-area, #print-area * {
-                visibility: visible;
+                visibility: visible !important;
+                height: auto !important;
+                min-height: auto !important;
             }
             #print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
                 width: 100% !important;
                 height: auto !important;
                 padding: 0 !important;
                 margin: 0 !important;
-                display: flex;
-                flex-direction: column;
-                gap: 0;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 0 !important;
             }
             .shipping-label-card {
                 width: 100% !important;
                 max-width: 100% !important;
-                aspect-ratio: 2 / 3 !important; /* standard 4x6 label ratio */
+                height: auto !important; /* Grow dynamically to fit content */
+                aspect-ratio: auto !important; /* Do not lock to a fixed ratio to avoid overflows */
                 box-sizing: border-box !important;
                 border: none !important;
                 margin: 0 !important;
                 padding: 4% 5% !important; /* relative padding so it scales dynamically */
-                page-break-after: always;
-                break-after: page;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                page-break-after: always !important;
+                break-after: page !important;
                 display: flex !important;
                 flex-direction: column !important;
-                justify-content: space-between !important;
+                justify-content: flex-start !important;
+                gap: 8px !important; /* tight layout to fit page */
                 box-shadow: none !important;
+            }
+            .shipping-label-card:last-child {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
             }
         }
     `;
