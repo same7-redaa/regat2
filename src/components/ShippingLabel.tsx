@@ -7,11 +7,11 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
 
     return (
         <div 
-            className="bg-white border border-slate-300 md:border-2 md:border-slate-800 flex flex-col shipping-label-card transition-all w-full max-w-[380px] aspect-[2/3] p-4 shadow-sm mx-auto justify-between text-slate-900 text-xs"
+            className="bg-white border border-slate-300 md:border-2 md:border-slate-800 flex flex-col shipping-label-card transition-all w-full max-w-[380px] aspect-[2/3] p-3 shadow-sm mx-auto justify-between text-slate-900 text-[11px]"
             style={{ fontFamily: "'Cairo', sans-serif", direction: 'rtl', pageBreakInside: 'avoid', breakInside: 'avoid' }}
         >
             {/* Header: Company name (right) + Order ID (left) */}
-            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-2">
+            <div className="flex justify-between items-start border-b border-slate-800 pb-1">
                 <div className="text-right">
                     {companyName
                         ? <div className="font-bold text-slate-900 leading-tight">{companyName}</div>
@@ -26,7 +26,7 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
             </div>
 
             {/* Customer + Phone */}
-            <div className="grid grid-cols-2 gap-2 border-b border-dashed border-slate-300 pb-2 mt-1">
+            <div className="grid grid-cols-2 gap-2 border-b border-dashed border-slate-300 pb-1 mt-1">
                 <div>
                     <div className="text-slate-500 mb-0.5">اسم العميل</div>
                     <div className="font-bold text-slate-900">{order.customerName || order.customer}</div>
@@ -44,7 +44,7 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
             </div>
 
             {/* Address */}
-            <div className="border-b border-dashed border-slate-300 pb-2 mt-1 flex gap-3">
+            <div className="border-b border-dashed border-slate-300 pb-1 mt-1 flex gap-3">
                 <div className="flex-shrink-0">
                     <div className="text-slate-500 mb-0.5">المحافظة</div>
                     <div className="font-bold text-sky-700">{order.shipping?.locationName || '—'}</div>
@@ -56,10 +56,10 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
             </div>
 
             {/* Products + Total box */}
-            <div className="flex gap-2 items-stretch mt-2 flex-1 min-h-0">
+            <div className="flex gap-2 items-stretch mt-1 flex-1 min-h-0">
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col justify-start">
-                    <div className="text-slate-500 mb-1">المنتجات ({totalQty} قطعة)</div>
-                    <div className="space-y-0.5 overflow-y-auto max-h-[110px] pr-1">
+                    <div className="text-slate-500 mb-0.5">المنتجات ({totalQty} قطعة)</div>
+                    <div className="space-y-0.5 overflow-y-auto max-h-[75px] pr-1">
                         {products.map((p: any, i: number) => (
                             <div key={i} className="flex justify-between">
                                 <span className="text-slate-700 truncate max-w-[150px]">{p.name}</span>
@@ -68,7 +68,7 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
                         ))}
                     </div>
                 </div>
-                <div className="border border-slate-800 p-2 text-center flex-shrink-0 flex flex-col justify-center items-center min-w-[70px]">
+                <div className="border border-slate-800 p-1 text-center flex-shrink-0 flex flex-col justify-center items-center min-w-[70px]">
                     <div className="text-slate-500">الإجمالي</div>
                     <div className="font-bold text-slate-900">{order.total}</div>
                     <div className="text-slate-600">ج.م</div>
@@ -77,7 +77,7 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
 
             {/* Shipping Company Name */}
             {order.shipping?.companyName && (
-                <div className="border-t border-dashed border-slate-300 pt-2 mt-2 flex justify-between items-center">
+                <div className="border-t border-dashed border-slate-300 pt-1 mt-1 flex justify-between items-center">
                     <span className="text-slate-500">شركة الشحن:</span>
                     <span className="font-bold text-slate-900">{order.shipping.companyName}</span>
                 </div>
@@ -85,16 +85,11 @@ export const ShippingLabel: React.FC<{ order: any; companyName: string }> = ({ o
 
             {/* Notes */}
             {order.notes && (
-                <div className="border-t border-dashed border-slate-300 pt-2 mt-2">
+                <div className="border-t border-dashed border-slate-300 pt-1 mt-1">
                     <span className="text-slate-500">ملاحظات: </span>
                     <span className="text-slate-700 font-bold">{order.notes}</span>
                 </div>
             )}
-
-            {/* Signature */}
-            <div className="flex justify-between items-end pt-1 mt-2 border-t border-slate-200">
-                <div className="text-slate-400">نظام مخزون للطباعة الحرارية</div>
-            </div>
         </div>
     );
 }
@@ -147,7 +142,7 @@ export function injectPrintStyle() {
                 box-sizing: border-box !important;
                 border: none !important;
                 margin: 0 !important;
-                padding: 6% !important; /* relative padding so it scales dynamically */
+                padding: 4% 5% !important; /* relative padding so it scales dynamically */
                 page-break-after: always;
                 break-after: page;
                 display: flex !important;
