@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { Plus, Wallet, Calendar, Trash2, Tag, FileText, DollarSign } from 'lucide-react';
 import { PageSkeleton, Spinner, TableRowSkeleton } from '../components/Skeleton';
 import { ToastContainer, useToast } from '../components/Toast';
@@ -28,11 +28,10 @@ export default function Expenses() {
 
     const loadExpenses = async () => {
         try {
-            const { data, error } = await supabase
-                .from('expenses')
-                .select('*')
-                .order('date', { ascending: false })
-                .order('created_at', { ascending: false });
+            const { data, error } = await fetchAll('expenses', '*', [
+                { column: 'date', ascending: false },
+                { column: 'created_at', ascending: false }
+            ]);
 
             if (error) throw error;
             setExpenses(data || []);

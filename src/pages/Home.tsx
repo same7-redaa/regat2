@@ -1,7 +1,7 @@
 import { Package, TrendingUp, AlertTriangle, DollarSign, Truck, XCircle, RotateCcw, Wallet, Search, CheckCircle2, FileText, BadgeDollarSign, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 
 type DateFilterType = 'all' | 'today' | 'week' | 'month' | 'custom';
@@ -55,9 +55,9 @@ export default function Home() {
           { data: ordersData },
           { data: expensesData }
         ] = await Promise.all([
-          supabase.from('products').select('*'),
-          supabase.from('orders').select('*'),
-          supabase.from('expenses').select('*')
+          fetchAll('products'),
+          fetchAll('orders'),
+          fetchAll('expenses')
         ]);
 
         setRawData({

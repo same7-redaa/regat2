@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Plus, Edit, Trash2, Eye, X, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { PageSkeleton } from '../components/Skeleton';
 
 export default function Inventory() {
@@ -22,7 +22,7 @@ export default function Inventory() {
   const itemsPerPage = 30;
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase.from('products').select('*').order('id');
+    const { data, error } = await fetchAll('products', '*', 'id');
     if (!error && data) {
       setProducts(data);
       // Keep localStorage in sync so Orders/Home can still read quickly

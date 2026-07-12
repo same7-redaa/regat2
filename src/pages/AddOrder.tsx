@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, Plus, Trash2, Save, MapPin, Package, User, FileText, Search, ChevronDown, Calculator } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { Spinner } from '../components/Skeleton';
 
 // Custom Searchable Select Component
@@ -99,7 +99,7 @@ export default function AddOrder() {
 
     useEffect(() => {
         // Load products and companies from Supabase
-        supabase.from('products').select('*').then(({ data }) => { if (data) setAvailableProducts(data); });
+        fetchAll('products').then(({ data }) => { if (data) setAvailableProducts(data); });
         supabase.from('shipping_companies').select('*').then(({ data }) => { if (data) setAvailableCompanies(data); });
 
         if (editId) {
@@ -227,7 +227,7 @@ export default function AddOrder() {
         let orderId = editId;
 
         if (!isEditing) {
-            const { data: existingOrdersData } = await supabase.from('orders').select('id');
+            const { data: existingOrdersData } = await fetchAll('orders', 'id');
             const existingIds = new Set(existingOrdersData?.map(o => o.id) || []);
             do {
                 orderId = `ORD-${Math.floor(100000 + Math.random() * 900000)}`;

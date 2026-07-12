@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Search, Bell, User, AlertTriangle, Package, Check, ShoppingCart, Menu } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { Link, useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
@@ -43,7 +43,13 @@ export default function Header({ toggleSidebar }: HeaderProps) {
   useEffect(() => {
     const fetchAlerts = async () => {
       // 1. Fetch delayed orders
-      const { data: dbOrders } = await supabase.from('orders').select('id, status, date, orderDate, createdAt, customer, alertDurationDays').eq('status', 'تم الشحن');
+      const { data: dbOrders } = await fetchAll(
+        'orders',
+        'id, status, date, orderDate, createdAt, customer, alertDurationDays',
+        undefined,
+        true,
+        [{ column: 'status', value: 'تم الشحن' }]
+      );
       // 2. Fetch low stock products
       const { data: dbProducts } = await supabase.from('products').select('id, productName, stock, lowStockWarning');
 

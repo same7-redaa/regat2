@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, Eye, Edit, FileText, Check, ChevronRight, ChevronLeft, X, Trash2, Printer, Upload, Download, AlertTriangle, Link2Off, Plus, RotateCcw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchAll } from '../lib/supabase';
 import { OrderRowSkeleton, Spinner } from '../components/Skeleton';
 import { ToastContainer, useToast } from '../components/Toast';
 
@@ -46,19 +46,19 @@ export default function Orders() {
 
     useEffect(() => {
         const fetchOrders = async () => {
-            const { data } = await supabase.from('orders').select('*').order('createdAt', { ascending: false });
+            const { data } = await fetchAll('orders', '*', 'createdAt', false);
             if (data) setOrders(data);
             setLoading(false);
         };
 
         fetchOrders();
-        supabase.from('products').select('*').then(({ data }) => { if (data) setProducts(data); });
+        fetchAll('products').then(({ data }) => { if (data) setProducts(data); });
         supabase.from('shipping_companies').select('*').then(({ data }) => { if (data) setShippingCompanies(data); });
 
         const channel = supabase.channel('orders-realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
             .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-                supabase.from('products').select('*').then(({ data }) => { if (data) setProducts(data); });
+                fetchAll('products').then(({ data }) => { if (data) setProducts(data); });
             })
             .subscribe();
         return () => { supabase.removeChannel(channel); };
@@ -68,11 +68,11 @@ export default function Orders() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const { data: prodData } = await supabase.from('products').select('*');
+        const { data: prodData } = await fetchAll('products');
         let products = prodData || [];
         const { data: compData } = await supabase.from('shipping_companies').select('*');
         let companies = compData || [];
-        const { data: existingOrdersData } = await supabase.from('orders').select('id');
+        const { data: existingOrdersData } = await fetchAll('orders', 'id');
         const existingIds = new Set(existingOrdersData?.map(o => o.id) || []);
 
         const reader = new FileReader();
