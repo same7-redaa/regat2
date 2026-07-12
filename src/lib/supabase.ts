@@ -14,7 +14,7 @@ export async function fetchAll<T = any>(
 ): Promise<{ data: T[] | null; error: any }> {
   let allData: T[] = [];
   let from = 0;
-  const pageSize = 2000;
+  const pageSize = 1000;
   let keepFetching = true;
 
   while (keepFetching) {
